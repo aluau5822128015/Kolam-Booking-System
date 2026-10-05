@@ -1,71 +1,171 @@
-function Amenities() {
+import { useState } from "react";
+import axios from "axios";
+
+function Booking() {
+  const [formData, setFormData] = useState({
+    guestName: "",
+    phone: "",
+    checkIn: "",
+    checkOut: "",
+    guests: "",
+    roomType: "",
+    specialRequest: "",
+  });
+
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setFormData((previousData) => ({
+      ...previousData,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    try {
+      setLoading(true);
+
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/bookings`,
+        {
+          guestName: formData.guestName,
+          phone: formData.phone,
+          checkIn: formData.checkIn,
+          checkOut: formData.checkOut,
+          guests: Number(formData.guests),
+          roomType: formData.roomType,
+          specialRequest: formData.specialRequest,
+        }
+      );
+
+      console.log("Booking created:", response.data);
+
+      alert(
+        "Your booking request has been received. Our front desk team will check availability and contact you."
+      );
+
+      setFormData({
+        guestName: "",
+        phone: "",
+        checkIn: "",
+        checkOut: "",
+        guests: "",
+        roomType: "",
+        specialRequest: "",
+      });
+    } catch (error) {
+      console.error("Booking submission failed:", error);
+
+      alert(
+        "Sorry, we could not submit your booking request. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <section className="amenities-section amenities-animate" id="amenities">
+    <section id="booking">
 
-      <div className="amenities-heading">
-        <p>OUR AMENITIES</p>
+      <h2>Book Your Stay</h2>
 
-        <h2>Everything You Need for a Comfortable Stay</h2>
+      <p>
+        Send us your booking request. Our front desk team will check
+        availability and contact you for confirmation.
+      </p>
 
-        <span>
-          Thoughtful facilities designed for a convenient and relaxing stay.
-        </span>
-      </div>
+      <form onSubmit={handleSubmit}>
 
-      <div className="amenities-grid">
+        <label>Guest Name</label>
+        <input
+          type="text"
+          name="guestName"
+          placeholder="Enter your name"
+          value={formData.guestName}
+          onChange={handleChange}
+          required
+        />
 
-        <div className="amenity-card">
-          <div className="amenity-icon">⚡</div>
-          <h3>Full Power Backup</h3>
-          <p>Reliable power backup for uninterrupted comfort.</p>
-        </div>
+        <label>Phone Number</label>
+        <input
+          type="tel"
+          name="phone"
+          placeholder="Enter your phone number"
+          value={formData.phone}
+          onChange={handleChange}
+          required
+        />
 
-        <div className="amenity-card">
-          <div className="amenity-icon">🛎️</div>
-          <h3>24-Hour Front Desk</h3>
-          <p>Our front desk is available around the clock.</p>
-        </div>
+        <label>Check-in Date</label>
+        <input
+          type="date"
+          name="checkIn"
+          value={formData.checkIn}
+          onChange={handleChange}
+          required
+        />
 
-        <div className="amenity-card">
-          <div className="amenity-icon">🍳</div>
-          <h3>Complimentary Breakfast</h3>
-          <p>Start your day with a complimentary breakfast.</p>
-        </div>
+        <label>Check-out Date</label>
+        <input
+          type="date"
+          name="checkOut"
+          value={formData.checkOut}
+          onChange={handleChange}
+          required
+        />
 
-        <div className="amenity-card">
-          <div className="amenity-icon">📶</div>
-          <h3>Free Wi-Fi</h3>
-          <p>Stay connected with convenient Wi-Fi access.</p>
-        </div>
+        <label>Number of Guests</label>
+        <select
+          name="guests"
+          value={formData.guests}
+          onChange={handleChange}
+          required
+        >
+          <option value="">Select number of guests</option>
+          <option value="1">1 Guest</option>
+          <option value="2">2 Guests</option>
+          <option value="3">3 Guests</option>
+        </select>
 
-        <div className="amenity-card">
-          <div className="amenity-icon">❄️</div>
-          <h3>Air Conditioning</h3>
-          <p>Comfortable rooms with air conditioning.</p>
-        </div>
+        <label>Preferred Room Type</label>
+        <select
+          name="roomType"
+          value={formData.roomType}
+          onChange={handleChange}
+          required
+        >
+          <option value="">Select room type</option>
+          <option value="king">King Room</option>
+          <option value="queen">Queen Room</option>
+          <option value="twin">Twin Room</option>
+          <option value="no-preference">No Preference</option>
+        </select>
 
-        <div className="amenity-card">
-          <div className="amenity-icon">🧹</div>
-          <h3>Housekeeping</h3>
-          <p>Regular housekeeping for a clean and pleasant stay.</p>
-        </div>
+        <label>Message / Special Request</label>
+        <textarea
+          name="specialRequest"
+          placeholder="Tell us any special request or requirement..."
+          rows="5"
+          value={formData.specialRequest}
+          onChange={handleChange}
+        ></textarea>
 
-        <div className="amenity-card">
-          <div className="amenity-icon">🚗</div>
-          <h3>Parking</h3>
-          <p>Convenient parking facility for guests.</p>
-        </div>
+        <p>
+          Maximum 3 guests are allowed per booking.
+        </p>
 
-        <div className="amenity-card">
-          <div className="amenity-icon">🍽️</div>
-          <h3>Kitchen Facilities</h3>
-          <p>Useful kitchen facilities for a comfortable stay.</p>
-        </div>
+        <button type="submit" disabled={loading}>
+          {loading ? "Sending..." : "Send Booking Request"}
+        </button>
 
-      </div>
+      </form>
 
     </section>
   );
 }
 
-export default Amenities;
+export default Booking;
