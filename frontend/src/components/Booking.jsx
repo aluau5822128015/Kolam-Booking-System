@@ -1,5 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
+import { apiUrl } from "../api/config";
 
 function Booking() {
   // Earliest selectable date (the server also rejects past check-in dates).
@@ -32,8 +33,8 @@ function Booking() {
     try {
       setLoading(true);
 
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/bookings`,
+      await axios.post(
+        apiUrl("/api/bookings"),
         {
           guestName: formData.guestName,
           phone: formData.phone,
@@ -44,8 +45,6 @@ function Booking() {
           specialRequest: formData.specialRequest,
         }
       );
-
-      console.log("Booking created:", response.data);
 
       alert(
         "Your booking request has been received. Our front desk team will check availability and contact you."
@@ -61,7 +60,7 @@ function Booking() {
         specialRequest: "",
       });
     } catch (error) {
-      console.error("Booking submission failed:", error);
+      console.error("Booking submission failed:", error.response?.status || error.message);
 
       alert(
         "Sorry, we could not submit your booking request. Please try again."

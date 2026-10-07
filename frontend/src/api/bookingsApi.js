@@ -1,7 +1,8 @@
 import axios from "axios";
 import { getToken, clearSession } from "./auth";
+import { apiUrl } from "./config";
 
-const BOOKINGS_URL = `${import.meta.env.VITE_API_URL}/api/bookings`;
+const bookingsUrl = () => apiUrl("/api/bookings");
 
 export const AUTH_EXPIRED_EVENT = "kolam:auth-expired";
 
@@ -28,12 +29,12 @@ http.interceptors.response.use(
 );
 
 export const fetchBookings = async () => {
-  const response = await http.get(BOOKINGS_URL);
+  const response = await http.get(bookingsUrl());
   return response.data.bookings;
 };
 
 // body is exactly what the backend PATCH /api/bookings/:id expects.
 export const updateBooking = async (id, body) => {
-  const response = await http.patch(`${BOOKINGS_URL}/${id}`, body);
+  const response = await http.patch(`${bookingsUrl()}/${id}`, body);
   return response.data.booking;
 };

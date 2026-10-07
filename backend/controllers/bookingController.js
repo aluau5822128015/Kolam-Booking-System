@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const Booking = require("../models/Booking");
 const { BOOKING_STATUSES, BOOKING_TYPES } = require("../models/Booking");
 const { findConflict } = require("../services/bookingConflictService");
+const { withFlatLock, LockBusyError } = require("../services/inventoryLock");
 const { isBlank } = require("../services/bookingRules");
 
 // Fields a public guest may submit. Status and assignment are NEVER taken
@@ -21,6 +22,10 @@ const CREATE_FIELDS = [
 // Fields Front Office may change.
 const UPDATE_FIELDS = ["status", "assignedFlatId", "assignedRoomKey"];
 
+// Matches legacy "Pending" values too.
+const PENDING = /^pending$/i;
+const CONFIRMED = /^confirmed$/i;
+
 const pick = (source, fields) =>
   fields.reduce((result, field) => {
     if (source[field] !== undefined) {
@@ -37,6 +42,12 @@ const validationMessages = (error) =>
 
 // Sends a safe response for any error; never leaks stack traces or DB details.
 const handleError = (res, error, fallbackMessage) => {
+  if (error instanceof LockBusyError) {
+    return res.status(409).json({
+      message: "Another confirmation for this flat is in progress. Please try again in a moment.",
+    });
+  }
+
   if (error instanceof mongoose.Error.ValidationError) {
     return res.status(400).json({
       message: "Validation failed.",
@@ -153,6 +164,12 @@ const updateBooking = async (req, res) => {
       });
     }
 
+    // Needed to undo a confirmation that loses its lock (see the fence below).
+    const before = {
+      assignedFlatId: booking.assignedFlatId ?? null,
+      assignedRoomKey: booking.assignedRoomKey ?? null,
+    };
+
     if (assignedFlatId !== undefined) {
       booking.assignedFlatId = isBlank(assignedFlatId) ? null : assignedFlatId;
     }
@@ -166,8 +183,35 @@ const updateBooking = async (req, res) => {
     // Dates, flat/room validity, room-belongs-to-flat, FLAT/ROOM rules.
     await booking.validate();
 
-    if (newStatus === "CONFIRMED") {
-      const conflict = await findConflict({
+    const changes = {
+      status: booking.status,
+      assignedFlatId: booking.assignedFlatId,
+      assignedRoomKey: booking.assignedRoomKey,
+    };
+
+    // Applies the change only if the booking is STILL pending (so a concurrent confirm/reject
+    // cannot be overwritten). Returns the updated booking, or null if it was already decided.
+    const applyChanges = async () => {
+      const done = await Booking.updateOne({ _id: booking._id, status: PENDING }, { $set: changes });
+      return done.matchedCount === 1 ? Booking.findById(booking._id) : null;
+    };
+    const alreadyDecided = async () => {
+      const current = await Booking.findById(booking._id);
+      return res.status(409).json({
+        message: `Booking is already ${current ? current.status : "changed"} and can no longer be changed.`,
+      });
+    };
+
+    if (newStatus !== "CONFIRMED") {
+      const updated = await applyChanges();
+      if (!updated) return alreadyDecided();
+      return res.json({ message: "Booking updated.", booking: updated });
+    }
+
+    // CONFIRMED: the conflict check and the save must not interleave with another confirmation
+    // for the same flat, so both run while holding that flat's lock.
+    const checkConflict = () =>
+      findConflict({
         bookingType: booking.bookingType,
         assignedFlatId: booking.assignedFlatId,
         assignedRoomKey: booking.assignedRoomKey,
@@ -176,28 +220,49 @@ const updateBooking = async (req, res) => {
         excludeId: booking._id,
       });
 
-      if (conflict) {
-        const target =
-          booking.bookingType === "FLAT"
-            ? `Flat ${booking.assignedFlatId}`
-            : `Room ${booking.assignedRoomKey}`;
+    const outcome = await withFlatLock(booking.assignedFlatId, async (lock) => {
+      const conflict = await checkConflict();
+      if (conflict) return { conflict };
 
-        return res.status(409).json({
-          message: `${target} is already occupied by a confirmed booking during these dates.`,
-          conflict: {
-            bookingType: conflict.bookingType,
-            assignedFlatId: conflict.assignedFlatId,
-            assignedRoomKey: conflict.assignedRoomKey,
-            checkIn: conflict.checkIn,
-            checkOut: conflict.checkOut,
-          },
-        });
+      // Fence 1: a request that stalled past the lock's TTL may have lost the flat to another
+      // request, so its conflict check above can no longer be trusted. Do not write.
+      if (!(await lock.isHeld())) throw new LockBusyError("The flat lock expired before the booking was saved.");
+
+      const updated = await applyChanges();
+
+      // Fence 2: ownership lost in the instant between the check above and the write. Look
+      // again; if another confirmed booking now occupies this inventory, undo this one.
+      if (updated && !(await lock.isOwner())) {
+        const late = await checkConflict();
+        if (late) {
+          await Booking.updateOne({ _id: booking._id, status: CONFIRMED }, { $set: { status: "PENDING", ...before } });
+          return { conflict: late };
+        }
       }
+      return { updated };
+    });
+
+    if (outcome.conflict) {
+      const conflict = outcome.conflict;
+      const target =
+        booking.bookingType === "FLAT"
+          ? `Flat ${booking.assignedFlatId}`
+          : `Room ${booking.assignedRoomKey}`;
+
+      return res.status(409).json({
+        message: `${target} is already occupied by a confirmed booking during these dates.`,
+        conflict: {
+          bookingType: conflict.bookingType,
+          assignedFlatId: conflict.assignedFlatId,
+          assignedRoomKey: conflict.assignedRoomKey,
+          checkIn: conflict.checkIn,
+          checkOut: conflict.checkOut,
+        },
+      });
     }
+    if (!outcome.updated) return alreadyDecided();
 
-    await booking.save();
-
-    res.json({ message: "Booking updated.", booking });
+    res.json({ message: "Booking updated.", booking: outcome.updated });
   } catch (error) {
     handleError(res, error, "Failed to update booking.");
   }

@@ -25,7 +25,7 @@ Source of truth in code: `frontend/src/data/kolamConfig.js` (`POLICY`).
 - 50% refund: cancelled at least 15 days before check-in.
 - No refund: cancelled within 15 days before check-in.
 
-## Ambiguities — NOT resolved; need a business decision
+## Ambiguities — NOT resolved. BUSINESS CLARIFICATION REQUIRED
 1. **1–5 day bookings:** "within 3 days" (50%) and "within 48 hours" (none) overlap, since 48 hours is inside 3 days.
 2. **1–5 day bookings:** nothing is stated for cancellation between 3 and 7 days before check-in.
 3. **6–30 day bookings:** "at least 15 days" (50%) overlaps "at least 30 days" (full); precedence is not stated.
@@ -34,3 +34,6 @@ Source of truth in code: `frontend/src/data/kolamConfig.js` (`POLICY`).
 6. Not stated whether refund percentages apply to the advance paid or the total booking value.
 
 The code stores these rules as text only and implements no automatic refund calculation.
+
+## Booking limits — BUSINESS CLARIFICATION REQUIRED
+The booking form currently accepts: an identical request submitted twice (two PENDING requests), any future check-in date, and any stay length. No maximum stay, booking horizon or duplicate policy has been supplied, so none is enforced. Technical limits that do exist: name 2-100 characters, phone format, special request up to 1000 characters, 1-3 guests, check-in not in the past, check-in before check-out. The chatbot availability check is limited to 30 nights per query.

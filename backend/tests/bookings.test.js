@@ -358,3 +358,74 @@ test("A7. repeated failed logins get rate limited (429), keep last", async () =>
   }
   assert.equal(last.status, 429);
 });
+
+// ---------------- Concurrency: the same inventory can never be confirmed twice ----------------
+
+test("C1. simultaneous confirmations of the same room: exactly one wins, the rest get 409", async () => {
+  const attempts = await Promise.all(
+    Array.from({ length: 8 }, () => create({ checkIn: "2032-04-10", checkOut: "2032-04-12" }))
+  );
+  const results = await Promise.all(attempts.map((b) => confirm(b._id, "3B", "3B-R1")));
+  const won = results.filter((r) => r.status === 200);
+  const lost = results.filter((r) => r.status === 409);
+  assert.equal(won.length, 1, results.map((r) => r.status).join(","));
+  assert.equal(lost.length, 7, results.map((r) => r.status).join(","));
+  const confirmed = (await api("GET", `${BASE}?status=CONFIRMED`)).body.bookings.filter(
+    (b) => b.assignedRoomKey === "3B-R1" && b.checkIn.startsWith("2032-04-10")
+  );
+  assert.equal(confirmed.length, 1, "only one confirmed booking exists for that room and window");
+});
+
+test("C2. simultaneous ROOM and FLAT confirmations in one flat cannot both succeed", async () => {
+  const room = await create({ checkIn: "2032-05-10", checkOut: "2032-05-12" });
+  const flat = await create({ checkIn: "2032-05-11", checkOut: "2032-05-13", bookingType: "FLAT" });
+  const [a, b] = await Promise.all([confirm(room._id, "3A", "3A-R2"), confirm(flat._id, "3A")]);
+  assert.deepEqual([a.status, b.status].sort(), [200, 409]);
+});
+
+test("C3. simultaneous confirmations in DIFFERENT flats both succeed (no false conflict)", async () => {
+  const one = await create({ checkIn: "2032-06-10", checkOut: "2032-06-12" });
+  const two = await create({ checkIn: "2032-06-10", checkOut: "2032-06-12" });
+  const [a, b] = await Promise.all([confirm(one._id, "1A", "1A-R3"), confirm(two._id, "1B", "1B-R3")]);
+  assert.deepEqual([a.status, b.status], [200, 200]);
+});
+
+test("C4. the same booking confirmed twice at once: one 200, one 409", async () => {
+  const b = await create({ checkIn: "2032-07-10", checkOut: "2032-07-12" });
+  const results = await Promise.all([confirm(b._id, "2A", "2A-R1"), confirm(b._id, "2A", "2A-R1")]);
+  assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
+});
+
+test("C5. a confirm racing a reject of the same booking ends in exactly one final state", async () => {
+  const b = await create({ checkIn: "2032-08-10", checkOut: "2032-08-12" });
+  const results = await Promise.all([confirm(b._id, "2B", "2B-R1"), api("PATCH", `${BASE}/${b._id}`, { status: "REJECTED" })]);
+  assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
+});
+
+test("C6. the lock is released: later confirmations in the same flat still work", async () => {
+  const b = await create({ checkIn: "2032-09-10", checkOut: "2032-09-12" });
+  assert.equal((await confirm(b._id, "3B", "3B-R2")).status, 200);
+});
+
+// ---------------- Express surface ----------------
+
+test("H1. GET /health is a static ok; no secrets, no X-Powered-By; GET / still works", async () => {
+  const res = await fetch(`http://localhost:${PORT}/health`);
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { status: "ok" });
+  assert.equal(res.headers.get("x-powered-by"), null);
+  const root = await fetch(`http://localhost:${PORT}/`);
+  assert.equal(root.status, 200);
+  assert.equal(await root.text(), "Kolam backend is running!");
+});
+
+test("H2. error surface stays safe: bad JSON, unknown route, oversize body", async () => {
+  const bad = await fetch(BASE, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{bad" });
+  assert.equal(bad.status, 400);
+  assert.ok(!/SyntaxError|\.js:/.test(await bad.text()));
+  const nf = await fetch(`http://localhost:${PORT}/api/nope`);
+  assert.equal(nf.status, 404);
+  assert.ok(!/node_modules|Error:/.test(await nf.text()));
+  const big = await fetch(BASE, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ guestName: "x".repeat(300000) }) });
+  assert.equal(big.status, 413);
+});

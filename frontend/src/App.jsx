@@ -12,6 +12,7 @@ import { Routes, Route } from "react-router-dom";
 import FrontOffice from "./pages/FrontOffice";
 import StaffLogin from "./pages/StaffLogin";
 import RequireStaff from "./pages/RequireStaff";
+import NotFound from "./pages/NotFound";
 
 function Home() {
   return (
@@ -43,6 +44,7 @@ function App() {
           </RequireStaff>
         }
       />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

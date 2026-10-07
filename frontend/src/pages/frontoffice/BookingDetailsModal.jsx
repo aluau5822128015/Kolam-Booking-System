@@ -3,7 +3,7 @@ import { bookingDayKey, formatDayKey } from "./calendarUtils";
 
 const REQUESTED_TYPE = { king: "Master Room", queen: "Queen Room", twin: "Twin Room", "no-preference": "No preference" };
 
-export const assignedLabel = (booking) => {
+const assignedLabel = (booking) => {
   if (booking.bookingType === "FLAT") {
     return booking.assignedFlatId ? `Entire flat ${booking.assignedFlatId}` : "Not assigned yet";
   }

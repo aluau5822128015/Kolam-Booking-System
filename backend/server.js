@@ -12,6 +12,9 @@ dotenv.config();
 
 const app = express();
 
+// Do not advertise the framework in every response.
+app.disable("x-powered-by");
+
 // Connect to MongoDB
 connectDB();
 
@@ -39,6 +42,11 @@ app.use(express.json());
 // Root route
 app.get("/", (req, res) => {
   res.send("Kolam backend is running!");
+});
+
+// Health check for Render / uptime monitors: static, touches no secrets or database.
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
 });
 
 // Staff authentication

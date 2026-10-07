@@ -1,6 +1,8 @@
 import axios from "axios";
 
-const AUTH_URL = `${import.meta.env.VITE_API_URL}/api/auth`;
+import { apiUrl } from "./config";
+
+const AUTH_URL = "/api/auth";
 const TOKEN_KEY = "kolamStaffToken";
 const USER_KEY = "kolamStaffUser";
 
@@ -26,7 +28,7 @@ export const clearSession = () => {
 };
 
 export const login = async (username, password) => {
-  const response = await axios.post(`${AUTH_URL}/login`, { username, password });
+  const response = await axios.post(apiUrl(`${AUTH_URL}/login`), { username, password });
   try {
     sessionStorage.setItem(TOKEN_KEY, response.data.token);
     sessionStorage.setItem(USER_KEY, response.data.username);
@@ -38,7 +40,7 @@ export const login = async (username, password) => {
 
 // Resolves if the stored token is still valid. Rejects with the axios error otherwise.
 export const checkSession = async () => {
-  const response = await axios.get(`${AUTH_URL}/me`, {
+  const response = await axios.get(apiUrl(`${AUTH_URL}/me`), {
     headers: { Authorization: `Bearer ${getToken()}` },
   });
   return response.data.username;

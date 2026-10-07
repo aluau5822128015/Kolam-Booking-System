@@ -1,13 +1,17 @@
 # Guest Chatbot (KOLAM Assistant)
 
+> The bot now acts as a Front Office Executive with a knowledge layer, conversation context and live availability in the
+> prompt. See [chatbot-knowledge.md](chatbot-knowledge.md) for the current architecture. The sections below describe
+> the original endpoints, environment variables and limits, which still apply.
+
 Public website only (mounted in the home page, not in `/front-office`). Guests chat with a floating robot at the bottom-right.
 
 ## Flow
 Browser → `POST /api/chat` → `chatService` → `aiService` (AI provider). The browser never talks to the AI provider and never sees the key.
 
 - **Quick-question buttons** (availability, prices, check-in/out, breakfast, house rules, cancellation, contact) return **fixed trusted answers** from `backend/config/propertyFacts.js`. No AI call, so they cannot be wrong or cost money.
-- **Typed questions** go to the AI with a strict system prompt and the trusted facts. The AI may only answer from those facts. If it does not know, it sends the guest to the front desk. If the AI is not configured or fails, the guest gets the same safe "call the front desk" reply.
-- **Availability** is never guessed. The AI must call the `check_availability` tool, which uses the same conflict rules as Front Office (`services/bookingConflictService.js`): only CONFIRMED bookings block, dates are `[checkIn, checkOut)`, a FLAT booking blocks all rooms of its flat. The tool result contains only free room keys and flats. No guest names, phones or booking details.
+- **Typed questions** go to the AI with a strict system prompt and the trusted facts. The AI may only answer from those facts. If it does not know, it sends the guest to the front desk. If the AI is not configured or fails, the guest gets an answer from the approved knowledge, or the safe "call the front desk" reply.
+- **Availability** is never guessed. Live results are read from the database and given to the AI, which also has a `check_availability` tool, which uses the same conflict rules as Front Office (`services/bookingConflictService.js`): only CONFIRMED bookings block, dates are `[checkIn, checkOut)`, a FLAT booking blocks all rooms of its flat. The tool result contains only free room keys and flats. No guest names, phones or booking details.
 - The bot never creates or confirms a booking. "Book a Room" scrolls to the existing booking form (`#booking`). The front desk confirms.
 
 ## Endpoints (public, no login)
@@ -19,12 +23,12 @@ Browser → `POST /api/chat` → `chatService` → `aiService` (AI provider). Th
 ## Environment variables (`backend/.env`, never in the frontend or GitHub)
 | Variable | Required | Meaning |
 |---|---|---|
-| `AI_API_KEY` | for AI answers | Provider API key. Without it, typed questions get the safe front-desk reply; quick questions still work. |
-| `AI_MODEL` | no | Defaults to `claude-haiku-4-5-20251001`. |
-| `AI_BASE_URL` | no | Defaults to `https://api.anthropic.com` (used by tests/proxies). |
+| `GEMINI_API_KEY` | for AI answers | Google Gemini API key (free key from https://aistudio.google.com/apikey). Without it the bot still answers from the approved Kolam knowledge; quick questions always work. |
+| `GEMINI_MODEL` | no | Defaults to `gemini-flash-lite-latest` (Google's alias for its current Flash-Lite model; free tier). Tested with a real key: `gemini-3.5-flash-lite` hung or returned 503 "high demand", and `gemini-2.5-*` return 404 for new users. |
+| `GEMINI_BASE_URL` | no | Defaults to `https://generativelanguage.googleapis.com` (used by tests/proxies). |
 | `CHAT_RATE_LIMIT_MAX`, `PUBLIC_RATE_LIMIT_MAX` | no | Override the per-minute limits (used by tests). |
 
-Provider: Anthropic Messages API called with plain `fetch` (no SDK installed). To change provider, edit `callProvider()` in `backend/services/aiService.js` only.
+Provider: Google Gemini, via the official `generateContent` REST API called with plain `fetch` (no SDK installed, nothing stored by the API between requests). The key is sent in the `x-goog-api-key` header and never appears in a URL, a log or a reply. `backend/services/aiService.js` is the only file that knows the provider; to change it, edit that file only. If the key is missing, or Gemini fails, times out or rate-limits, the guest gets an answer from the approved knowledge (see `chatbot-knowledge.md`) and no provider error is shown.
 
 ## Keeping facts correct
 `backend/config/propertyFacts.js` mirrors the rates and times in `frontend/src/data/kolamConfig.js` and the phone number in the site's Contact section. A test fails if the rates drift. If you change prices or policy, update both files.
