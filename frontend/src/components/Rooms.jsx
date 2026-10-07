@@ -20,11 +20,11 @@ function Rooms() {
 
         <div className="room-card">
           <div className="room-image">
-            <img src={kingRoom} alt="King Room" />
+            <img src={kingRoom} alt="Master Room" />
           </div>
 
           <div className="room-content">
-            <h3>King Room</h3>
+            <h3>Master Room</h3>
 
             <p>
               Spacious and comfortable room suitable for
@@ -36,7 +36,7 @@ function Rooms() {
               <span>2 Guests</span>
             </div>
 
-            <a href="#location" className="room-button">
+            <a href="#booking" className="room-button">
               Book Now
             </a>
           </div>
@@ -60,7 +60,7 @@ function Rooms() {
               <span>2 Guests</span>
             </div>
 
-            <a href="#location" className="room-button">
+            <a href="#booking" className="room-button">
               Book Now
             </a>
           </div>
@@ -84,7 +84,7 @@ function Rooms() {
               <span>2 Guests</span>
             </div>
 
-            <a href="#location" className="room-button">
+            <a href="#booking" className="room-button">
               Book Now
             </a>
           </div>

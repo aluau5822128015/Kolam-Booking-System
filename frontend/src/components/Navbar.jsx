@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import logo from "../assets/kolam-logo/kolam-logo.png";
 
 function Navbar() {
@@ -17,6 +18,10 @@ function Navbar() {
         <a href="#amenities">Amenities</a>
         <a href="#gallery">Gallery</a>
         <a href="#location">Location</a>
+        <a href="#contact">Contact</a>
+        <Link to="/front-office" className="navbar-front-office">
+          Front Office
+        </Link>
         <a href="#booking">Book Now</a>
       </div>
 

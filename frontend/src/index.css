@@ -65,6 +65,21 @@ body {
   color: #b8860b;
 }
 
+.navbar-links a.navbar-front-office {
+  padding: 8px 18px;
+  white-space: nowrap;
+  border: 2px solid #b8860b;
+  border-radius: 6px;
+  color: #8a6508;
+  font-weight: 600;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.navbar-links a.navbar-front-office:hover {
+  background: #b8860b;
+  color: #ffffff;
+}
+
 
 /* =========================
    HERO

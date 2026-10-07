@@ -2,6 +2,9 @@ import { useState } from "react";
 import axios from "axios";
 
 function Booking() {
+  // Earliest selectable date (the server also rejects past check-in dates).
+  const today = new Date().toLocaleDateString("en-CA");
+
   const [formData, setFormData] = useState({
     guestName: "",
     phone: "",
@@ -87,6 +90,8 @@ function Booking() {
           placeholder="Enter your name"
           value={formData.guestName}
           onChange={handleChange}
+          minLength={2}
+          maxLength={100}
           required
         />
 
@@ -97,6 +102,9 @@ function Booking() {
           placeholder="Enter your phone number"
           value={formData.phone}
           onChange={handleChange}
+          pattern="\+?[0-9][0-9\s\-]{6,19}"
+          title="Enter a valid phone number (7-20 digits, optional + at the start)"
+          maxLength={20}
           required
         />
 
@@ -106,6 +114,7 @@ function Booking() {
           name="checkIn"
           value={formData.checkIn}
           onChange={handleChange}
+          min={today}
           required
         />
 
@@ -115,6 +124,7 @@ function Booking() {
           name="checkOut"
           value={formData.checkOut}
           onChange={handleChange}
+          min={formData.checkIn || today}
           required
         />
 
@@ -139,7 +149,7 @@ function Booking() {
           required
         >
           <option value="">Select room type</option>
-          <option value="king">King Room</option>
+          <option value="king">Master Room</option>
           <option value="queen">Queen Room</option>
           <option value="twin">Twin Room</option>
           <option value="no-preference">No Preference</option>
@@ -150,6 +160,7 @@ function Booking() {
           name="specialRequest"
           placeholder="Tell us any special request or requirement..."
           rows="5"
+          maxLength={1000}
           value={formData.specialRequest}
           onChange={handleChange}
         ></textarea>
