@@ -2,9 +2,16 @@ import { useState } from "react";
 import axios from "axios";
 import { apiUrl } from "../api/config";
 
+// The day after a YYYY-MM-DD date (check-out must be strictly after check-in).
+const nextDay = (isoDate) => {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+};
+
 function Booking() {
   // Earliest selectable date (the server also rejects past check-in dates).
   const today = new Date().toLocaleDateString("en-CA");
+  const minCheckOut = (checkIn) => nextDay(checkIn || today);
 
   const [formData, setFormData] = useState({
     guestName: "",
@@ -29,6 +36,11 @@ function Booking() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    if (formData.checkOut <= formData.checkIn) {
+      alert("Check-out date must be after the check-in date.");
+      return;
+    }
 
     try {
       setLoading(true);
@@ -60,10 +72,24 @@ function Booking() {
         specialRequest: "",
       });
     } catch (error) {
-      console.error("Booking submission failed:", error.response?.status || error.message);
+      if (import.meta.env.DEV) {
+        // Development only: show what the server actually rejected. Never logged in production builds.
+        console.error("Booking submission failed:", {
+          status: error.response?.status,
+          message: error.response?.data?.message || error.message,
+          errors: error.response?.data?.errors,
+        });
+      } else {
+        console.error("Booking submission failed:", error.response?.status || error.message);
+      }
+
+      // Validation messages from the server are guest-safe (e.g. "Check-in cannot be in the past.").
+      const details =
+        error.response?.status === 400 ? error.response.data?.errors?.join(" ") : "";
 
       alert(
-        "Sorry, we could not submit your booking request. Please try again."
+        details ||
+          "Sorry, we could not submit your booking request. Please try again."
       );
     } finally {
       setLoading(false);
@@ -123,7 +149,7 @@ function Booking() {
           name="checkOut"
           value={formData.checkOut}
           onChange={handleChange}
-          min={formData.checkIn || today}
+          min={minCheckOut(formData.checkIn)}
           required
         />
 
